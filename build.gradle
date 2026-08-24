@@ -4,6 +4,10 @@ subprojects {
     group = project.property("GROUP_ID")
     version = project.property("VERSION_NAME")
 
+    java {
+        toolchain.languageVersion.set(JavaLanguageVersion.of(25))
+    }
+
     repositories {
         gradlePluginPortal()
         mavenCentral()
@@ -20,10 +24,8 @@ subprojects {
         useJUnitPlatform()
     }
 
-    tasks.withType(JavaCompile) {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-
+    tasks.withType(JavaCompile).configureEach {
         options.encoding = "UTF-8"
+        options.release.set(25)
     }
 }
