@@ -31,8 +31,40 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p smoke/plugins
+          mkdir -p smoke/plugins/ServersNPC
           cp bukkit/build/libs/*.jar smoke/plugins/ServersNPC.jar
+
+          # Regression fixture: an existing NPC must be restored from the same legacy JSON
+          # shape produced by released ZNPCs builds, including decimal-form integer fields.
+          cat > smoke/plugins/ServersNPC/data.json <<'JSON'
+          {
+            "NPC_LIST": [
+              {
+                "id": 9001.0,
+                "hologramHeight": 0.0,
+                "skin": "",
+                "signature": "",
+                "skinName": "Steve",
+                "location": {
+                  "world": "world",
+                  "x": 0.5,
+                  "y": 80.0,
+                  "z": 0.5,
+                  "yaw": 0.0,
+                  "pitch": 0.0
+                },
+                "npcType": "PLAYER",
+                "hologramLines": ["CI Persisted NPC"],
+                "refreshSkinDuration": 0.0,
+                "clickActions": [],
+                "npcEquip": {},
+                "npcFunctions": {"look": true},
+                "customizationMap": {}
+              }
+            ]
+          }
+          JSON
+
           cd smoke
 
           USER_AGENT='choice21hax-znpcs-ci/1.0 (https://github.com/choice21hax/znpcs)'
@@ -80,6 +112,12 @@ jobs:
 
           grep -qi 'Enabling ServersNPC' server.log
           grep -qi 'Using embedded PacketEvents' server.log
+          grep -Fqi 'Loaded 1 persisted NPC(s) from data.json.' server.log
+
+          if grep -Fqi 'Failed to restore persisted NPC' server.log; then
+            echo 'Persisted NPC restoration failed.' >&2
+            exit 1
+          fi
 
       - name: Upload plugin jar
         if: success()
