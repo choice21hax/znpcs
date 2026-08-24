@@ -8,6 +8,7 @@ import io.github.gonalez.znpcs.configuration.ConfigConfiguration;
 import io.github.gonalez.znpcs.configuration.DataConfiguration;
 import io.github.gonalez.znpcs.listeners.InventoryListener;
 import io.github.gonalez.znpcs.listeners.PlayerListener;
+import io.github.gonalez.znpcs.modern.ModernPacketBridge;
 import io.github.gonalez.znpcs.npc.NPC;
 import io.github.gonalez.znpcs.npc.NPCModel;
 import io.github.gonalez.znpcs.npc.NPCPath;
@@ -24,7 +25,6 @@ import io.github.gonalez.znpcs.utility.MetricsLite;
 import io.github.gonalez.znpcs.utility.SchedulerUtils;
 import io.github.gonalez.znpcs.utility.itemstack.ItemStackSerializer;
 import io.github.gonalez.znpcs.utility.location.ZLocation;
-import java.util.concurrent.Executors;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.inventory.ItemStack;
@@ -38,6 +38,7 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 
 public class ServersNPC extends JavaPlugin {
@@ -52,15 +53,22 @@ public class ServersNPC extends JavaPlugin {
           .create();
 
   public static SchedulerUtils SCHEDULER;
-
   public static BungeeUtils BUNGEE_UTILS;
 
   private ZNPConfigSaveTask configSaveTask;
 
   @Override
-  public void onEnable() {
-    Path pluginPath = getDataFolder().toPath();
+  public void onLoad() {
+    // PacketEvents must load during Bukkit's plugin load phase so it can install its protocol
+    // implementation before players are initialized. This is only active for 26.x.
+    ModernPacketBridge.load(this);
+  }
 
+  @Override
+  public void onEnable() {
+    ModernPacketBridge.init();
+
+    Path pluginPath = getDataFolder().toPath();
     Path pathPath = pluginPath.resolve("paths");
     try {
       loadAllPaths(pathPath);
@@ -100,13 +108,9 @@ public class ServersNPC extends JavaPlugin {
     if (configSaveTask != null) {
       configSaveTask.run();
     }
+    ModernPacketBridge.terminate();
   }
 
-  /**
-   * Finds all files that qualify as NPC paths. A file is considered a valid NPC path file
-   * if its name ends with {@link #PATH_EXTENSION}. This method reads each qualifying file
-   * and converts it to an NPC path & initializes it.
-   */
   private void loadAllPaths(Path directory) throws IOException {
     if (Files.isDirectory(directory)) {
       Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
@@ -138,7 +142,6 @@ public class ServersNPC extends JavaPlugin {
             .withHologramLines(Collections.singletonList(name))
             .withLocation(new ZLocation(location))
             .withNpcType(npcType);
-    // TODO: Make a proper npc saving
     ZNPConfigUtils.getConfig(DataConfiguration.class).npcList.add(pojo);
     return new NPC(pojo, true);
   }
@@ -148,7 +151,6 @@ public class ServersNPC extends JavaPlugin {
     if (npc == null)
       throw new IllegalStateException("can't find npc:  " + npcID);
     NPC.unregister(npcID);
-    // TODO: Make a proper npc saving
     ZNPConfigUtils.getConfig(DataConfiguration.class).npcList.remove(npc.getNpcPojo());
   }
 }
