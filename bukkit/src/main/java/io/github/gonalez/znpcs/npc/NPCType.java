@@ -1,7 +1,7 @@
 package io.github.gonalez.znpcs.npc;
 
+import io.github.gonalez.znpcs.modern.ModernCustomizationBridge;
 import io.github.gonalez.znpcs.modern.ModernPacketBridge;
-import io.github.gonalez.znpcs.utility.Utils;
 import org.bukkit.entity.EntityType;
 
 import java.lang.reflect.Constructor;
@@ -66,8 +66,7 @@ public enum NPCType {
         try {
             resolved = EntityType.valueOf(name());
         } catch (IllegalArgumentException ignored) {
-            // Bukkit can rename enum constants independently of the wire entity type. The modern
-            // protocol bridge has its own explicit mapping and does not rely on this value.
+            // The wire mapping used by ModernPacketBridge is authoritative on 26.x.
         }
         this.bukkitEntityType = resolved;
         this.customizationLoader = resolved == null ? null : new CustomizationLoader(resolved, Arrays.asList(methods));
@@ -77,10 +76,6 @@ public enum NPCType {
         return holoHeight;
     }
 
-    /**
-     * Legacy NMS constructor access. The Paper 26.1.2 branch intentionally does not construct
-     * server-side NMS entities; virtual entities are created by {@link ModernPacketBridge}.
-     */
     @Deprecated
     public Constructor<?> getConstructor() {
         return null;
@@ -113,7 +108,7 @@ public enum NPCType {
 
     public void updateCustomization(NPC npc, String name, String[] values) {
         if (ModernPacketBridge.isModern()) {
-            ModernPacketBridge.applyCustomization(npc, name, values);
+            ModernCustomizationBridge.apply(npc, name, values);
             return;
         }
         if (customizationLoader == null || !customizationLoader.contains(name) || npc.getBukkitEntity() == null) {
