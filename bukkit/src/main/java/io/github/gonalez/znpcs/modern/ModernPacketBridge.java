@@ -3,6 +3,7 @@ package io.github.gonalez.znpcs.modern;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.event.PacketListener;
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.protocol.entity.EntityPositionData;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
@@ -87,7 +88,7 @@ public final class ModernPacketBridge {
     if (!isModern() || initialized) return;
     if (!loaded) throw new IllegalStateException("ModernPacketBridge.load() must run during onLoad");
     api.init();
-    api.getEventManager().registerListener(new InteractionListener());
+    api.getEventManager().registerListener(new InteractionListener(), PacketListenerPriority.MONITOR);
     initialized = true;
     plugin.getLogger().info("Using embedded PacketEvents " + api.getVersion() + " protocol bridge for Minecraft "
         + api.getServerManager().getVersion() + ".");
@@ -244,7 +245,6 @@ public final class ModernPacketBridge {
       metadata.add(new EntityData<>(0, EntityDataTypes.BYTE, entityFlags));
     }
     if (npc.getNpcPojo().getNpcType() == NPCType.PLAYER) {
-      // Player model-part byte moved to index 16 in 1.21.9+ and remains there in 26.1.x.
       metadata.add(new EntityData<>(16, EntityDataTypes.BYTE, (byte) 0x7F));
     }
     if (!metadata.isEmpty()) {
