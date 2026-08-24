@@ -27,6 +27,7 @@ import io.github.gonalez.znpcs.utility.itemstack.ItemStackSerializer;
 import io.github.gonalez.znpcs.utility.location.ZLocation;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -86,7 +87,13 @@ public class ServersNPC extends JavaPlugin {
             .setSkinExecutor(Executors.newSingleThreadExecutor())
             .addSkinFetcherServer(new AshconSkinFetcherServer(), new MineSkinFetcher())
             .build();
-    new DefaultCommand(pathPath, skinFetcher);
+
+    DefaultCommand defaultCommand = new DefaultCommand(pathPath, skinFetcher);
+    PluginCommand znpcsCommand = getCommand("znpcs");
+    if (znpcsCommand == null) {
+      throw new IllegalStateException("znpcs command is missing from plugin.yml");
+    }
+    znpcsCommand.setExecutor(defaultCommand);
 
     SCHEDULER = new SchedulerUtils(this);
     BUNGEE_UTILS = new BungeeUtils(this);
