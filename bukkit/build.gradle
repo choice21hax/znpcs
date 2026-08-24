@@ -4,6 +4,7 @@ plugins {
 
 repositories {
     maven { url = "https://repo.papermc.io/repository/maven-public/" }
+    maven { url = "https://repo.codemc.io/repository/maven-releases/" }
     maven { url = "https://libraries.minecraft.net/" }
     maven { url = "https://repo.helpch.at/releases/" }
     maven { url = "https://repo.extendedclip.com/content/repositories/placeholderapi/" }
@@ -11,6 +12,7 @@ repositories {
 
 dependencies {
     implementation project(":core")
+    implementation("com.github.retrooper:packetevents-spigot:2.13.0")
     compileOnly("io.netty:netty-all:4.1.77.Final")
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
     compileOnly("me.clip:placeholderapi:2.11.6")
@@ -18,9 +20,8 @@ dependencies {
 
 shadowJar {
     archiveClassifier.set("")
-    dependencies {
-        include(dependency("io.github.gonalez.znpcs:.*"))
-    }
+    relocate("com.github.retrooper.packetevents", "io.github.gonalez.znpcs.libs.packetevents.api")
+    relocate("io.github.retrooper.packetevents", "io.github.gonalez.znpcs.libs.packetevents.impl")
 }
 
 build.dependsOn shadowJar
