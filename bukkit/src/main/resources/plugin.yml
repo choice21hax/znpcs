@@ -3,3 +3,8 @@ main: io.github.gonalez.znpcs.ServersNPC
 version: 4.1-paper26.1.2
 api-version: '26.1'
 softdepend: [ PlaceholderAPI ]
+
+commands:
+  znpcs:
+    description: Manage ZNPCs
+    usage: /znpcs
