@@ -6,16 +6,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import io.github.gonalez.znpcs.configuration.ConfigConfiguration;
 import io.github.gonalez.znpcs.configuration.Configuration;
-import io.github.gonalez.znpcs.configuration.ConfigurationManager;
 import io.github.gonalez.znpcs.configuration.ConversationsConfiguration;
 import io.github.gonalez.znpcs.configuration.DataConfiguration;
-import io.github.gonalez.znpcs.configuration.GsonConfigurationManager;
+import io.github.gonalez.znpcs.configuration.GsonConfigurationIndex;
 import io.github.gonalez.znpcs.configuration.MessagesConfiguration;
+import io.github.gonalez.znpcs.configuration.WritableConfigurationIndex;
+
+import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.ReflectiveOperationException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
 
 public final class ZNPConfigUtils {
 
@@ -26,62 +30,96 @@ public final class ZNPConfigUtils {
           DataConfiguration.class, "data",
           ConversationsConfiguration.class, "conversations");
 
-  private static final AtomicReference<ConfigurationManager> CONFIG_MANAGER_REF = new AtomicReference<>(null);
+  private static final AtomicReference<WritableConfigurationIndex> CONFIG_INDEX_REF =
+      new AtomicReference<>();
 
-  static final Map<Class<? extends Configuration>, Configuration> knownConfigs = new LinkedHashMap<>();
+  static final Map<Class<? extends Configuration>, Configuration> knownConfigs =
+      new LinkedHashMap<>();
 
   private ZNPConfigUtils() {}
 
-  private static void setupConfigs(ConfigurationManager configurationManager) {
+  private static void setupConfigs(WritableConfigurationIndex configurationIndex) {
+    knownConfigs.clear();
     for (Class<? extends Configuration> configType : PLUGIN_CONFIGURATIONS.keySet()) {
-      Configuration configuration = configurationManager.createConfiguration(
-          configType, configurationManager.createDefaultWriter());
-      knownConfigs.put(configType, configuration);
+      try {
+        Configuration configuration = configurationIndex.createConfiguration(configType);
+        knownConfigs.put(configType, configuration);
+      } catch (IOException exception) {
+        throw new IllegalStateException("Failed to load plugin configuration " + configType.getSimpleName(), exception);
+      }
     }
   }
 
-  static void setConfigurationManager(ConfigurationManager configurationManager) {
-    CONFIG_MANAGER_REF.set(configurationManager);
-    setupConfigs(configurationManager);
+  static void setConfigurationManager(WritableConfigurationIndex configurationIndex) {
+    CONFIG_INDEX_REF.set(Preconditions.checkNotNull(configurationIndex));
+    setupConfigs(configurationIndex);
   }
 
   public static void rewriteConfigs(Predicate<Configuration> shouldSavePredicate) {
-    ConfigurationManager configurationManager = CONFIG_MANAGER_REF.get();
+    WritableConfigurationIndex configurationIndex = CONFIG_INDEX_REF.get();
+    if (configurationIndex == null) {
+      throw new IllegalStateException("Configuration index has not been initialized");
+    }
+
     for (Configuration configuration : knownConfigs.values()) {
       if (shouldSavePredicate.apply(configuration)) {
-        configurationManager.writeConfig(configuration, configurationManager.createDefaultWriter());
+        try {
+          configurationIndex.writeConfiguration(configuration);
+        } catch (IOException exception) {
+          throw new IllegalStateException(
+              "Failed to save plugin configuration " + configuration.getClass().getSimpleName(), exception);
+        }
       }
     }
   }
 
   @SuppressWarnings("unchecked")
   public static <T extends Configuration> T getConfig(Class<T> configType) {
-    if (knownConfigs.containsKey(configType)) {
-      return (T) knownConfigs.get(configType);
+    Configuration configuration = knownConfigs.get(configType);
+    if (configuration != null) {
+      return (T) configuration;
     }
     throw new NullPointerException("Not a plugin config: " + configType);
   }
 
-  static class PluginConfigConfigurationFormat extends GsonConfigurationManager {
+  static class PluginConfigConfigurationFormat extends GsonConfigurationIndex {
     private final Path pluginFolder;
 
-    public PluginConfigConfigurationFormat(Path pluginFolder, Gson gson) {
+    PluginConfigConfigurationFormat(Path pluginFolder, Gson gson) {
       super(gson);
       this.pluginFolder = Preconditions.checkNotNull(pluginFolder);
-    }
-
-    @Override
-    public void setPath(Class<? extends Configuration> configurationClass, Path path) {
-      throw new UnsupportedOperationException("plugin only");
-    }
-
-    @Nullable
-    @Override
-    public Path getPath(Class<? extends Configuration> configurationClass) {
-      if (PLUGIN_CONFIGURATIONS.containsKey(configurationClass)) {
-        return pluginFolder.resolve(PLUGIN_CONFIGURATIONS.get(configurationClass) + ".json");
+      try {
+        Files.createDirectories(pluginFolder);
+      } catch (IOException exception) {
+        throw new IllegalStateException("Failed to create plugin data directory " + pluginFolder, exception);
       }
-      return null;
+    }
+
+    @Override
+    public <T extends Configuration> T createConfiguration(Class<T> type) throws IOException {
+      Path path = getConfigFilePath(type);
+      if (Files.notExists(path)) {
+        T configuration;
+        try {
+          Constructor<T> constructor = type.getDeclaredConstructor();
+          constructor.setAccessible(true);
+          configuration = constructor.newInstance();
+        } catch (ReflectiveOperationException exception) {
+          throw new IOException("Failed to create default configuration " + type.getName(), exception);
+        }
+        writeConfiguration(configuration);
+        return configuration;
+      }
+      return super.createConfiguration(type);
+    }
+
+    @Override
+    public Path getConfigFilePath(Class<? extends Configuration> configurationClass) {
+      String configName = PLUGIN_CONFIGURATIONS.get(configurationClass);
+      if (configName == null) {
+        throw new IllegalArgumentException("Not a plugin config: " + configurationClass);
+      }
+      return pluginFolder.resolve(configName + ".json");
     }
   }
 }
