@@ -14,7 +14,6 @@ import io.github.gonalez.znpcs.configuration.WritableConfigurationIndex;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.ReflectiveOperationException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
