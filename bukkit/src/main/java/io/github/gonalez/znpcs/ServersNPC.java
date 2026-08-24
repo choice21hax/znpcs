@@ -98,6 +98,7 @@ public class ServersNPC extends JavaPlugin {
     SCHEDULER = new SchedulerUtils(this);
     BUNGEE_UTILS = new BungeeUtils(this);
 
+    restorePersistedNpcs();
     Bukkit.getOnlinePlayers().forEach(ZUser::find);
 
     new NPCManagerTask(this);
@@ -107,6 +108,28 @@ public class ServersNPC extends JavaPlugin {
 
     new PlayerListener(this);
     new InventoryListener(this);
+  }
+
+  private void restorePersistedNpcs() {
+    DataConfiguration dataConfiguration = ZNPConfigUtils.getConfig(DataConfiguration.class);
+    int loaded = 0;
+    for (NPCModel npcModel : dataConfiguration.npcList) {
+      if (npcModel == null) {
+        getLogger().warning("Skipping null NPC entry in data.json");
+        continue;
+      }
+
+      try {
+        new NPC(npcModel, true);
+        loaded++;
+      } catch (Throwable throwable) {
+        getLogger().log(
+            Level.SEVERE,
+            "Failed to restore persisted NPC id " + npcModel.getId() + " from data.json",
+            throwable);
+      }
+    }
+    getLogger().info("Loaded " + loaded + " persisted NPC(s) from data.json.");
   }
 
   @Override
