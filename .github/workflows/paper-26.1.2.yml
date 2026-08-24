@@ -27,6 +27,60 @@ jobs:
       - name: Build
         run: ./gradlew clean build --stacktrace
 
+      - name: Smoke boot on Paper 26.1.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p smoke/plugins
+          cp bukkit/build/libs/*.jar smoke/plugins/ServersNPC.jar
+          cd smoke
+
+          USER_AGENT='choice21hax-znpcs-ci/1.0 (https://github.com/choice21hax/znpcs)'
+          BUILDS="$(curl -fsSL -H "User-Agent: ${USER_AGENT}" \
+            https://fill.papermc.io/v3/projects/paper/versions/26.1.2/builds)"
+          PAPER_URL="$(printf '%s' "$BUILDS" | jq -r \
+            'first(.[] | select(.channel == "STABLE") | .downloads."server:default".url) // first(.[].downloads."server:default".url) // empty')"
+
+          if [ -z "$PAPER_URL" ]; then
+            echo 'Unable to resolve a Paper 26.1.2 server download.' >&2
+            exit 1
+          fi
+
+          curl -fL -H "User-Agent: ${USER_AGENT}" "$PAPER_URL" -o paper.jar
+          echo 'eula=true' > eula.txt
+
+          java -Xms512M -Xmx1024M -jar paper.jar --nogui > server.log 2>&1 &
+          SERVER_PID=$!
+          BOOTED=0
+
+          for _ in $(seq 1 120); do
+            if grep -q 'Done (' server.log 2>/dev/null; then
+              BOOTED=1
+              break
+            fi
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          cat server.log
+          kill "$SERVER_PID" 2>/dev/null || true
+          wait "$SERVER_PID" 2>/dev/null || true
+
+          if [ "$BOOTED" -ne 1 ]; then
+            echo 'Paper did not complete startup.' >&2
+            exit 1
+          fi
+
+          if grep -Eqi 'Error occurred while (loading|enabling) ServersNPC|Could not load.*ServersNPC|Failed to load.*ServersNPC|Exception.*ServersNPC' server.log; then
+            echo 'ServersNPC reported a load/enable exception.' >&2
+            exit 1
+          fi
+
+          grep -qi 'Enabling ServersNPC' server.log
+          grep -qi 'Using embedded PacketEvents' server.log
+
       - name: Upload plugin jar
         if: success()
         uses: actions/upload-artifact@v4
