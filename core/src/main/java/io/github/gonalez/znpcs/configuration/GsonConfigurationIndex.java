@@ -31,7 +31,7 @@ public abstract class GsonConfigurationIndex extends PathConfigurationIndex {
       mergeFromJsonObject(json.getAsJsonObject(), builder, allFields);
     } else {
       Map.Entry<String, Field> first = allFields.entrySet().iterator().next();
-      builder.put(first.getKey(), gson.fromJson(json, first.getValue().getType()));
+      builder.put(first.getKey(), gson.fromJson(json, first.getValue().getGenericType()));
     }
     return builder.build();
   }
@@ -41,7 +41,7 @@ public abstract class GsonConfigurationIndex extends PathConfigurationIndex {
     for (Entry<String, Field> entry : allFields.entrySet()) {
       JsonElement element = jsonObject.get(entry.getKey());
       if (element != null) {
-        builder.put(entry.getKey(), gson.fromJson(element, entry.getValue().getType()));
+        builder.put(entry.getKey(), gson.fromJson(element, entry.getValue().getGenericType()));
       }
     }
   }
