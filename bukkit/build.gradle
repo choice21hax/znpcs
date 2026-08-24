@@ -1,22 +1,26 @@
 plugins {
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'com.gradleup.shadow' version '9.6.1'
 }
 
 repositories {
+    maven { url = "https://repo.papermc.io/repository/maven-public/" }
     maven { url = "https://libraries.minecraft.net/" }
     maven { url = "https://repo.helpch.at/releases/" }
-    maven { url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/" }
+    maven { url = "https://repo.extendedclip.com/content/repositories/placeholderapi/" }
 }
 
 dependencies {
     implementation project(":core")
     compileOnly("io.netty:netty-all:4.1.77.Final")
-    compileOnly("org.spigotmc:spigot-api:1.16.2-R0.1-SNAPSHOT")
-    compileOnly("me.clip:placeholderapi:2.11.5")
+    compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
+    compileOnly("me.clip:placeholderapi:2.11.6")
 }
 
 shadowJar {
+    archiveClassifier.set("")
     dependencies {
         include(dependency("io.github.gonalez.znpcs:.*"))
     }
 }
+
+build.dependsOn shadowJar
